@@ -24,16 +24,13 @@ func (c *MysqlInput) GetSchemaList() ([]string, error) {
 		}
 	}()
 	db := c.GetConn()
+	if db != nil {
+		defer db.Close()
+	}
 	databaseList := make([]string, 0)
 	sql := "select `SCHEMA_NAME` from `information_schema`.`SCHEMATA`"
-	stmt, err := db.Prepare(sql)
-	if err != nil {
-		log.Println(err)
-		return databaseList, nil
-	}
-	defer stmt.Close()
 	p := make([]driver.Value, 0)
-	rows, err := stmt.Query(p)
+	rows, err := db.Query(sql, p)
 	defer rows.Close()
 	if err != nil {
 		log.Printf("%v\n", err)
@@ -61,17 +58,14 @@ func (c *MysqlInput) GetSchemaTableList(schema string) (tableList []inputDriver.
 		}
 	}()
 	db := c.GetConn()
+	if db != nil {
+		defer db.Close()
+	}
 	tableList = make([]inputDriver.TableList, 0)
 	sql := "SELECT TABLE_NAME,TABLE_TYPE FROM `information_schema`.`TABLES` WHERE TABLE_SCHEMA = ?"
-
-	stmt, err := db.Prepare(sql)
-	if err != nil {
-		log.Println(err)
-	}
-	defer stmt.Close()
 	p := make([]driver.Value, 0)
 	p = append(p, schema)
-	rows, err := stmt.Query(p)
+	rows, err := db.Query(sql, p)
 	defer rows.Close()
 	if err != nil {
 		log.Printf("%v\n", err)
@@ -94,6 +88,10 @@ func (c *MysqlInput) GetSchemaTableList(schema string) (tableList []inputDriver.
 }
 
 func (c *MysqlInput) GetSchemaTableFieldList(schema string, table string) (FieldList []inputDriver.TableFieldInfo, err error) {
+	return c.GetSchemaTableFieldList0(schema, table)
+}
+
+func (c *MysqlInput) GetSchemaTableFieldList0(schema string, table string) (FieldList []inputDriver.TableFieldInfo, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println(err)
@@ -101,19 +99,15 @@ func (c *MysqlInput) GetSchemaTableFieldList(schema string, table string) (Field
 		}
 	}()
 	db := c.GetConn()
+	if db != nil {
+		defer db.Close()
+	}
 	FieldList = make([]inputDriver.TableFieldInfo, 0)
 	sql := "SELECT `COLUMN_NAME`,`COLUMN_DEFAULT`,`IS_NULLABLE`,`COLUMN_TYPE`,`COLUMN_KEY`,`EXTRA`,`COLUMN_COMMENT`,`DATA_TYPE`,`NUMERIC_PRECISION`,`NUMERIC_SCALE` FROM `information_schema`.`columns` WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-
-	stmt, err := db.Prepare(sql)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer stmt.Close()
 	p := make([]driver.Value, 0)
 	p = append(p, schema)
 	p = append(p, table)
-	rows, err := stmt.Query(p)
+	rows, err := db.Query(sql, p)
 	defer rows.Close()
 	if err != nil {
 		log.Printf("%v\n", err)
@@ -214,6 +208,9 @@ func (c *MysqlInput) CheckPrivilege() (err error) {
 		}
 	}()
 	db := c.GetConn()
+	if db != nil {
+		db.Close()
+	}
 	err = CheckUserSlavePrivilege(db)
 	return
 }
@@ -292,6 +289,7 @@ func (c *MysqlInput) GetCurrentPosition() (p *inputDriver.PluginPosition, err er
 	dbconn := c.GetConn()
 	if dbconn == nil {
 		err = fmt.Errorf("db conn ,uknow error;请排查 Bifrost 机器 到 MySQL 机器网络是否正常，防火墙是否开放等！")
+		return
 	}
 	defer dbconn.Close()
 	MasterBinlogInfo := GetBinLogInfo(dbconn)
@@ -324,6 +322,8 @@ func (c *MysqlInput) GetVersion() (Version string, err error) {
 	db := c.GetConn()
 	if db == nil {
 		err = fmt.Errorf("db conn ,uknow error;请排查 Bifrost 机器 到 MySQL 机器网络是否正常，防火墙是否开放等！")
+	} else {
+		defer db.Close()
 	}
 	Version = GetMySQLVersion(db)
 	return

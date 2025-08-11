@@ -423,7 +423,7 @@ func (parser *eventParser) parseEventRow(buf *bytes.Buffer, tableMap *TableMapEv
 			break
 
 		case FIELD_TYPE_BLOB, FIELD_TYPE_TINY_BLOB, FIELD_TYPE_MEDIUM_BLOB,
-			FIELD_TYPE_LONG_BLOB, FIELD_TYPE_VAR_STRING:
+			FIELD_TYPE_LONG_BLOB, FIELD_TYPE_VAR_STRING, FIELD_TYPE_GEOMETRY:
 			var length uint64
 			length, e = readFixedLengthInteger(buf, int(tableMap.columnMetaData[i].length_size))
 			row[column_name] = string(buf.Next(int(length)))
@@ -466,11 +466,6 @@ func (parser *eventParser) parseEventRow(buf *bytes.Buffer, tableMap *TableMapEv
 			bitInt, _ := strconv.ParseInt(resp, 2, 10)
 			row[column_name] = bitInt
 			break
-
-		case
-			FIELD_TYPE_GEOMETRY:
-			return nil, fmt.Errorf("parseEventRow unimplemented for field type %s", fieldTypeName(tableMap.columnTypes[i]))
-
 		case FIELD_TYPE_DATE, FIELD_TYPE_NEWDATE:
 			var data []byte
 			data = buf.Next(3)
@@ -639,7 +634,6 @@ DATETIME
 6 bits second         (0-59)
 ---------------------------
 40 bits = 5 bytes
-
 */
 func read_datetime2(buf *bytes.Buffer, fsp uint8) (data string, err error) {
 	defer func() {
@@ -682,7 +676,6 @@ func read_datetime2(buf *bytes.Buffer, fsp uint8) (data string, err error) {
 }
 
 /*
-
 Fractional-part encoding depends on the fractional seconds precision (FSP).
 // https://dev.mysql.com/doc/internals/en/date-and-time-data-type-representation.html
 FSP	Storage
